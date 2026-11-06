@@ -1,0 +1,20 @@
+ticker,effective_date,announcement_date,effective_timing,midcap400_exit_date,source_url,company,event_type,timing_note,narrative_replacement_date
+DASH,2025-03-24,2025-03-07,before_open,,https://press.spglobal.com/2025-03-07-DoorDash%2C-TKO-Group-Holdings%2C-Williams-Sonoma-and-Expand-Energy-Set-to-Join-S-P-500-Others-to-Join-S-P-100%2C-S-P-MidCap-400-and-S-P-SmallCap-600,,,,
+TKO,2025-03-24,2025-03-07,before_open,2025-03-24,https://press.spglobal.com/2025-03-07-DoorDash%2C-TKO-Group-Holdings%2C-Williams-Sonoma-and-Expand-Energy-Set-to-Join-S-P-500-Others-to-Join-S-P-100%2C-S-P-MidCap-400-and-S-P-SmallCap-600,,,,
+WSM,2025-03-24,2025-03-07,before_open,2025-03-24,https://press.spglobal.com/2025-03-07-DoorDash%2C-TKO-Group-Holdings%2C-Williams-Sonoma-and-Expand-Energy-Set-to-Join-S-P-500-Others-to-Join-S-P-100%2C-S-P-MidCap-400-and-S-P-SmallCap-600,,,,
+EXE,2025-03-24,2025-03-07,before_open,2025-03-24,https://press.spglobal.com/2025-03-07-DoorDash%2C-TKO-Group-Holdings%2C-Williams-Sonoma-and-Expand-Energy-Set-to-Join-S-P-500-Others-to-Join-S-P-100%2C-S-P-MidCap-400-and-S-P-SmallCap-600,,,,
+COIN,2025-05-19,2025-05-12,before_open,,https://press.spglobal.com/2025-05-12-Coinbase-Global-Set-to-Join-S-P-500,,,,
+DDOG,2025-07-09,2025-07-02,before_open,,https://press.spglobal.com/2025-07-02-Datadog-Set-to-Join-S-P-500,,,,
+TTD,2025-07-18,2025-07-14,before_open,,https://press.spglobal.com/2025-07-14-The-Trade-Desk-Set-to-Join-S-P-500,,,,
+XYZ,2025-07-23,2025-07-18,before_open,,https://press.spglobal.com/2025-07-18-Block-Set-to-Join-S-P-500,,,,
+IBKR,2025-08-28,2025-08-25,before_open,2025-08-28,https://press.spglobal.com/2025-08-25-Interactive-Brokers-Group-Set-to-Join-S-P-500%2C-Talen-Energy-to-Join-S-P-MidCap-400-and-Kinetik-Holdings-to-Join-S-P-SmallCap-600,,,,
+APP,2025-09-22,2025-09-05,before_open,,https://press.spglobal.com/2025-09-05-AppLovin%2C-Robinhood-Markets-and-Emcor-Group-Set-to-Join-S-P-500-Others-to-Join-S-P-100%2C-S-P-MidCap-400-and-S-P-SmallCap-600,,,,
+EME,2025-09-22,2025-09-05,before_open,2025-09-22,https://press.spglobal.com/2025-09-05-AppLovin%2C-Robinhood-Markets-and-Emcor-Group-Set-to-Join-S-P-500-Others-to-Join-S-P-100%2C-S-P-MidCap-400-and-S-P-SmallCap-600,,,,
+HOOD,2025-09-22,2025-09-05,before_open,,https://press.spglobal.com/2025-09-05-AppLovin%2C-Robinhood-Markets-and-Emcor-Group-Set-to-Join-S-P-500-Others-to-Join-S-P-100%2C-S-P-MidCap-400-and-S-P-SmallCap-600,,,,
+SOLS,2025-10-30,2025-10-27,,,https://www.spglobal.com/spdji/en/documents/indexnews/announcements/20251027-1480741/1480741_hon-dd-5-spin.pdf,Solstice Advanced Materials,spinoff,Addition date from the notice table; the text describes replacement before the following session.,2025-10-31
+Q,2025-11-03,2025-10-27,,,https://www.spglobal.com/spdji/en/documents/indexnews/announcements/20251027-1480741/1480741_hon-dd-5-spin.pdf,,,Addition date from the notice table; the text describes replacement before the following session.,2025-11-04
+SNDK,2025-11-28,2025-11-24,before_open,,https://press.spglobal.com/2025-11-24-Sandisk-Set-to-Join-S-P-500-Upwork%2C-First-Interstate-BancSystem%2C-PTC-Therapeutics-to-Join-S-P-SmallCap-600,,,,
+ARES,2025-12-11,2025-12-08,before_open,,https://press.spglobal.com/2025-12-08-Ares-Management-Set-to-Join-S-P-500-Sezzle-and-Vital-Farms-to-Join-S-P-SmallCap-600,,,,
+CRH,2025-12-22,2025-12-05,before_open,,https://www.spglobal.com/spdji/en/documents/indexnews/announcements/20251205-1480992/1480992_december2025rebalance.pdf,,,,
+CVNA,2025-12-22,2025-12-05,before_open,,https://www.spglobal.com/spdji/en/documents/indexnews/announcements/20251205-1480992/1480992_december2025rebalance.pdf,,,,
+FIX,2025-12-22,2025-12-05,before_open,2025-12-22,https://www.spglobal.com/spdji/en/documents/indexnews/announcements/20251205-1480992/1480992_december2025rebalance.pdf,,,,
