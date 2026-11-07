@@ -1,6 +1,24 @@
 # AppliedInvestments
 
-The **Index Life-Cycle Strategy** project studies three stages of S&P 500 additions. It tests whether we can anticipate additions, exit the positions around index implementation, and trade post-inclusion underperformance. The 1975–2025 history lets us compare periods, including whether the effect persisted in 2018–2025.
+This project studies the **S&P 500 index effect**. The research question is:
+
+> *Did the S&P 500 additions and deletions effect disappear, and is there a tradable version after costs?*
+
+The headline analysis has two parts. A daily event study measures market-adjusted cumulative abnormal returns (CARs) around additions and deletions. Calendar-time portfolios go long deletions and short additions, and their Fama–French five-factor plus momentum alphas are reported before and after trading and borrowing costs. The **core sample is 1976–2022**, where the S&P 500 membership data are complete. Events from 2023–2025 rely on provisional, manually collected membership changes and appear only as a separately labelled robustness check.
+
+The earlier work on predicting additions with a logit model (anticipation) is kept as an optional appendix. It is not part of the headline results.
+
+## Notebooks
+
+| Notebook | Role |
+| --- | --- |
+| [01_inventory.ipynb](notebooks/01_inventory.ipynb) | Data catalogue and **event register**: one table of additions and one of deletions, with the flags that define the main samples. Appendix A at the end builds the anticipation features and labels. |
+| [02_post_inclusion.ipynb](notebooks/02_post_inclusion.ipynb) | **Headline analysis**: event study, calendar-time portfolios, costs, robustness checks, and the count of specifications. The filename is kept from the earlier prototype, whose content this notebook replaces. |
+| [03_strategy_inputs.ipynb](notebooks/03_strategy_inputs.ipynb) | Optional supporting tables written to `Data/prepared/`: an additions register with S&P notice evidence, the anticipation candidate universe, daily windows around additions, and the factor CSV. Notebook 02 does not need it. |
+| [04_anticipation_baseline.ipynb](notebooks/04_anticipation_baseline.ipynb) | Appendix B.1: anticipation logit, 2000–2012 training and out-of-sample test. |
+| [05_anticipation_extended.ipynb](notebooks/05_anticipation_extended.ipynb) | Appendix B.2: walk-forward anticipation portfolio, 2000–2025. |
+| [06_anticipation_long_short.ipynb](notebooks/06_anticipation_long_short.ipynb) | **Strategy**: long predicted additions, short predicted discretionary deletions (stocks only, no derivatives), exit at the index trade date. Logits fixed on 1976–2009, out-of-sample test 2010–2022, gross and net alphas. Runs notebook 01 first, reads the daily Parquet copy, writes nothing to disk; about one minute. |
+| [07_event_backtest.ipynb](notebooks/07_event_backtest.ipynb) | **Event backtest without forecasting**: buy every main addition and short every main deletion 5, 3 or 1 sessions before the index trade date, close at its close. Per-trade and calendar-time results for 1976–2022 by sub-period, 2023–2025 as a provisional check, gross and net of spreads and borrow fees. Writes nothing to disk; under half a minute. |
 
 ## Set up the Python kernel
 
@@ -13,77 +31,72 @@ python -m venv .venv
 
 In VS Code, open a notebook and choose **Select Kernel → Python Environments → `.venv`**. The interpreter is `.venv\Scripts\python.exe` under the project root.
 
-## Run the data inventory
+Notebook 02 reads the daily CRSP file faster from a Parquet copy in `Data/parquet/crsp_daily/`, which requires `pyarrow`. `pyarrow` is not listed in `requirements.txt`. Without the Parquet copy, the notebook scans the roughly 10 GB daily CSV in chunks, which is much slower.
 
-1. Place the 12 CSV files and the 1975 workbook in `Data/` at the repository root. The inventory accepts the descriptive CSV names and the original WRDS download names. If both copies are present, it uses the descriptive name. Git ignores this directory so the WRDS data stays local.
-2. Open [01_inventory.ipynb](notebooks/01_inventory.ipynb) in VS Code and select the project kernel with the dependencies from `requirements.txt` installed.
-3. Run all cells. The catalog explains what each file contains. The provisional additions register is available as `events`. Set `audit_monthly = True` to check the full monthly export for duplicate records.
+## Run the analysis
+
+1. Place the WRDS CSV exports, the 1975 membership workbook, the two 2023–2025 CSV files, and the Kenneth French archives `F-F_Research_Data_5_Factors_2x3_CSV.zip` and `F-F_Momentum_Factor_CSV.zip` in `Data/` at the repository root. The inventory accepts the descriptive CSV names and the original WRDS download names. Git ignores this directory so the WRDS data stay local.
+2. Run [02_post_inclusion.ipynb](notebooks/02_post_inclusion.ipynb) from top to bottom. It runs notebook 01 first, needs no prepared files, and writes nothing to disk. A full run takes about half a minute with the Parquet copy.
+3. To inspect the samples, run [01_inventory.ipynb](notebooks/01_inventory.ipynb) on its own. `additions_register` and `deletions_register` hold the events and flags.
 
 The notebooks read the source files locally. Clear cell outputs before sharing a notebook.
 
-## Prepare inputs for all three legs
+## Design
 
-Run [03_strategy_inputs.ipynb](notebooks/03_strategy_inputs.ipynb) to write the following CSV files to the Git-ignored `Data/prepared/` directory.
+**Event register (notebook 01).** Additions and deletions come from the membership spells. For an addition, `effective_date` is the first session in the index. For a deletion, it is the last session in the index. In the historical export, 96% of deletion end dates are followed by a replacement addition on the next session, which confirms this convention. The 2023–2025 removals file reports S&P's effective date, the first session *out* of the index. That date is moved back one session so that both sources use the same convention. The 1975 workbook supplies spells that the historical export omits: one core deletion, Ingersoll-Rand in 2009, and one 2024 removal missing from the 2023–2025 file. All flags use only information available at the event date:
 
-| File | Use |
-| --- | --- |
-| `strategy_events.csv` | Shared addition register with effective dates, announcement evidence, execution-close reference dates where supported, and monthly holding dates. Join by `permno` and `effective_date`. |
-| `anticipation_candidates.csv` | Provisional month-end nonmember universe for 1975–2022, with CRSP size, rank, and a liquidity proxy. Join by `permno` and `formation_date`. |
-| `anticipation_effective_date_labels.csv` | Separate labels for inclusion within three months of formation, based on effective dates. These support a pipeline check. A pre-announcement test needs verified announcement dates and coverage. |
-| `inclusion_daily_windows.csv` | Daily prices, returns, volume, quotes, and the benchmark around additions. Set `build_daily_windows = True` to generate this file from the roughly 10 GB daily export. |
-| `monthly_ff5_momentum.csv` | Monthly five-factor and momentum returns in decimal units for the post-inclusion tests. Keep `F-F_Research_Data_5_Factors_2x3_CSV.zip` and `F-F_Momentum_Factor_CSV.zip` in `Data/`. |
+- **Spin-offs and merger successors** (additions): no CRSP monthly row in the three calendar months before the effective month. Excluded from the main sample.
+- **Delisting-related deletions**: a CRSP delisting before the deletion or at most 21 sessions after it, covering acquisitions, mergers, and failures. Excluded from the main sample, which keeps deletions whose stock continues to trade. The register reports counts for 5- and 63-session windows.
+- **Spin-off removals** (deletions): the same CRSP-history proxy applied to deletions. It identifies 19 spin-offs that S&P added on the distribution date and removed a few days later, all in 2015–2022. This flag was added after the data were inspected. It defines a robustness check only.
 
-The [S&P notice seed](references/sp500_announcement_seed.csv) keeps the public source for each checked addition. Leave timing or migration fields blank when the notice does not establish them. Extend the anticipation universe through 2025 once recent membership and exits are reconciled. The full candidate model also needs point-in-time earnings, float, and MidCap 400 membership.
+Main samples, 1976–2022: **1,013 additions** and **481 deletions**.
 
-## Run the post-inclusion prototype
+**Event study (notebook 02).** Day 0 is the **index trading date**, the close at which index funds trade. For an addition, this is the session before the effective date; for a deletion, the last session in the index. The abnormal return is the CRSP daily total return minus the S&P 500 return, and CARs are summed over [−60, −1], [0, +20], [+1, +60], and [+1, +250]. Delisting returns are included, and the abnormal return is zero after delisting. t-statistics are clustered by effective month. Sub-periods are 1976–1989, 1990–1999, 2000–2009, and 2010–2022, and a regression tests whether 2010–2022 differs from 1990–1999. Robustness checks centre additions on the effective date, use price returns on both sides, and apply the design to 2023–2025.
 
-Open [02_post_inclusion.ipynb](notebooks/02_post_inclusion.ipynb) with the same Python kernel and run all cells. It runs the inventory and builds `portfolio_monthly`, the gross return series for the equal-weighted basket of recent additions from January 1975 through December 2025, along with monthly coverage counts.
+**Calendar-time portfolios (notebook 02).** Each event is held for 12 months starting in the month after its effective month, so no position uses the effective-month close. The portfolios are equal weighted, using CRSP monthly returns including delisting returns. The strategies are long deletions, short additions (`RF − R_additions`), and the long–short spread. Alphas use the Fama–French five factors and momentum, with Newey–West standard errors and 12 lags.
 
-For `alpha_summary`, place the [Kenneth French monthly factors archive](https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/F-F_Research_Data_Factors_CSV.zip) in `Data/` under its original filename. The notebook estimates a preliminary CAPM alpha for the full sample and each subperiod.
+**Costs and robustness (notebook 02).** Trading costs are applied to actual monthly turnover. The cost per side is either half the quoted CRSP bid–ask spread from the month before the trade, or an assumed 0.2%, 0.5%, or 1.0%. The short leg pays an assumed borrow fee of 0.5%, 1%, or 2% per year. Robustness checks are value weighting, holding periods of 6 and 24 months, dropping the five largest events (by size before the event), an assumed −30% for missing non-merger delisting returns, and 2023–2025.
 
-The gross hedged spread in `hedged_monthly` is long the CRSP value-weighted U.S. market and short the additions basket in equal dollar amounts. Returns are measured per dollar of short exposure. Run `03_strategy_inputs.ipynb` first to create `monthly_ff5_momentum.csv` for `multifactor_alpha_summary`. This table reports alpha, the remaining market beta, t-statistics, and approximate confidence intervals using 12 monthly Newey–West lags. The hedge is a market return proxy and the gross series precedes trading, financing, and stock-borrow costs.
+## Main results
 
-## Team handoff
+The figures below come from the run of 7 November 2026. Alphas are monthly percentages, with t-statistics in parentheses.
 
-On a fresh clone, set up `.venv` and place the source files in `Data/`. Run the inventory to check coverage. Run `03_strategy_inputs.ipynb` to generate the shared tables. Enable `build_daily_windows` on the first run if the daily table is needed. The portfolio and gross hedge in `02_post_inclusion.ipynb` can run with the source files. Its multifactor section uses the prepared factor table.
+| | 1976–1989 | 1990–1999 | 2000–2009 | 2010–2022 |
+| --- | --- | --- | --- | --- |
+| Additions, CAR [−60, −1] | 2.1% (2.5) | 8.4% (6.8) | 11.3% (8.3) | 9.0% (8.7) |
+| Additions, CAR [+1, +60] | 4.3% (4.8) | −4.2% (−2.8) | −2.3% (−1.7) | 0.2% (0.2) |
+| Deletions, CAR [−60, −1] | 1.9% (0.9) | −11.6% (−2.3) | −33.0% (−4.9) | −10.7% (−4.8) |
+| Deletions, CAR [+1, +60] | 0.9% (0.3) | 12.8% (3.3) | 27.4% (4.1) | 0.6% (0.2) |
+| Long–short spread, gross alpha | −0.51 (−0.51) | 3.33 (2.76) | 1.38 (1.53) | 0.04 (0.11) |
+| Long–short spread, net of estimated spreads | −0.94 (−0.94) | 2.71 (2.22) | 1.15 (1.20) | 0.02 (0.06) |
 
-| Workstream | First deliverable |
-| --- | --- |
-| **1. Anticipation** | Build a size-and-liquidity baseline on the 1975–2022 candidate universe. Follow the plan's 2000–2012 training window and test from 2013 onward wherever labels are available. Produce a dated list of candidates selected at each formation date. Use the effective-date labels to check the pipeline. Evaluate pre-announcement performance only where announcement dates and coverage are verified. |
-| **2. Event verification and exit** | Start by sourcing the 2023–2024 announcements and reconciling 2023–2025 additions and removals. Record the source, announcement date, effective date, and timing in the shared S&P reference file. Test the closing-price proxy on events with confirmed timing. Use consistent dividend treatment when comparing stock and benchmark returns. Link the exit to positions selected by the anticipation model and define how to exit candidates that never join. |
-| **3. Post-inclusion** | Use the gross hedged series and multifactor estimates in notebook 02 as the baseline. Check sensitivity to the hedge, holding period, event filters, and Newey–West lag choice. Add turnover and trading, financing, and borrow costs under stated assumptions. Show 2018–2025 separately. |
+- **The post-event effect has disappeared.** The reversal of additions and the rebound of deletions after the index trading date were large in the 1990s and 2000s and are absent in 2010–2022. The decline in the deletion rebound from 1990–1999 to 2010–2022 is significant: −12.3 percentage points over [+1, +60] (t = −2.6) and −21.6 percentage points over [+1, +250] (t = −2.2).
+- **The pre-event run-up of additions persists.** It is about 9% over 60 sessions in 2010–2022, but it mixes announcement, anticipation, and selection on past returns, and it cannot be traded without knowing the additions in advance.
+- **No tradable version survives in the recent period.** Over 1976–2022, the long–short alpha net of estimated spreads is 0.35% per month (t = 0.87). In 2010–2022 the gross alpha is zero, and the break-even trading cost is 0.08% per side. Every robustness check gives the same pattern. The provisional 2023–2025 spread alpha is −0.42% per month (t = −0.48).
+- **Multiple testing.** Notebook 02 reports **297 estimates**: 89 with |t| > 2 and 39 with |t| > 3. Of those 39, 38 are event-study means and one is a negative net alpha. No portfolio alpha has t > 3. All specifications were fixed before the results were computed, except the spin-off removal check, which is labelled as post hoc.
 
-Use `permno` and `effective_date` to join event data. Use `permno` and `formation_date` to join anticipation features to labels. Keep each workstream in a separate notebook and edit the shared event references in one place.
+## Data limits
 
-### Which gaps block which tests?
+- **Announcement dates are mostly missing.** Verified dates exist only for the 19 additions of 2025 in the [S&P notice seed](references/sp500_announcement_seed.csv). Windows are centred on the index trading date, and the pre-event window mixes announcement and anticipation effects. Dates from the provisional additions file are not used.
+- **2023–2025 membership is provisional.** The additions and removals files were collected manually. The removals file ends in August 2025 and omits at least one 2024 removal. The [December 5, 2025 announcement](https://www.spglobal.com/spdji/en/documents/indexnews/announcements/20251205-1480992/1480992_december2025rebalance.pdf) confirms three removals effective December 22, 2025, that the file does not contain. Results for this period are a robustness check only.
+- **Pre-1990 dates are imprecise.** Before about 1990, membership changes are recorded on a weekly grid, and some exits are recorded weeks after the CRSP delisting. S&P also did not pre-announce changes before October 1989.
+- **Restated Compustat is not used** in the headline analysis. Compustat enters only the anticipation appendix, where it is the current, restated vintage and not point-in-time data.
+- **Event types are proxies.** The export does not classify events, and S&P MidCap 400 membership is not available, so migrations cannot be identified.
+- **Costs are approximate.** Quoted spreads cover only 15% of traded weight in 1976–1989. Gaps are filled with the median quoted spread among that month's trades, or with an assumed 0.5% per side when no trade has a quote. Quoted spreads leave out price impact at index-event closes. Borrow fees are assumptions.
+- **Unresolved records.** Ingersoll-Rand (PERMNO 12431, now Trane Technologies) exits the index on June 30, 2009, according to the 1975 workbook, but no later spell records its return to the index. Nine deleted securities have CRSP monthly rows without returns for 78 position-months, and those months are left out of the portfolio average.
 
-| Missing input | Consequence |
-| --- | --- |
-| Announcement dates | Required for a pre-announcement test or an announcement-centered event study. Effective-date windows and the pooled post-inclusion test can start with verified effective dates. |
-| Complete S&P 500 membership through 2025 | Required to extend the nonmember candidate universe beyond 2022. |
-| S&P MidCap 400 membership history | Required to use MidCap membership as a predictor and to classify migrations reliably across the sample. The three baseline tests can start with a pooled sample. Keep unverified origins unknown in any migration comparison. |
-| Quarterly report dates, float, and sector data | Required for the corresponding earnings, float, and sector inputs in the full screening model. The first model can use the size and liquidity fields already prepared. |
-| Auction data, borrow fees, and benchmark weights | The daily close supports a proxy execution test. Use auction data to test the actual auction price, borrow-fee assumptions or observations to evaluate net short returns, and dated weights to test an index underweight. |
+## Reproducibility
 
-Commit the three notebooks with cell outputs cleared, `.gitignore`, `README.md`, `requirements.txt`, and `references/sp500_announcement_seed.csv`. The inventory reads this public S&P reference file. Git ignores `Data/` and `.venv/`.
+To reproduce the results, use the same WRDS exports and the same Kenneth French factor archives (September 2026 CRSP vintage). Each contributor creates their own `.venv` from `requirements.txt`. Notebook 02 does not depend on `Data/prepared/`. Notebook 03 regenerates those files for the appendix when `save_prepared = True`.
 
-To reproduce the same results, use the same WRDS exports and the same three Kenneth French factor archives. The factor archives used here report the September 2026 CRSP vintage. Each contributor creates their own `.venv` from `requirements.txt` and regenerates `Data/prepared/` by running notebook 03.
+Commit the notebooks with cell outputs cleared, `.gitignore`, `README.md`, `requirements.txt`, and `references/sp500_announcement_seed.csv`. Git ignores `Data/` and `.venv/`.
 
-## Data acquisition checklist
+## Data that would strengthen the study
 
-### Priority inputs for the three legs
-
-| Missing input | Fields and coverage to request | Where to look |
+| Missing input | Use | Where to look |
 | --- | --- | --- |
-| S&P 500 announcement dates for anticipation and the event study | Security identifier or historical ticker, addition or removal, public announcement date and time if available, effective date, and source. The prepared register has announcement dates for 19 of 1,220 candidate additions. All 31 candidates recorded for 2023–2024 still need an announcement date. | Free [S&P DJI announcements](https://www.spglobal.com/spdji/en/media-center/news-announcements/) for event-by-event verification. [Siblis Historical Component Changes](https://siblisresearch.com/data/historical-component-changes/) is a commercial source for bulk history. Confirm coverage before using it. |
-| S&P 500 membership through 2025 and S&P MidCap 400 history | Index ID, security ID (`GVKEY` and `IID` or `PERMNO`), membership start and end dates. Request complete S&P 500 membership changes for 2023–2025 and MidCap 400 membership from its 1991 launch through 2025. The local removals file ends in August 2025. | [Compustat/CCM historical constituents on WRDS](https://wrds-www.wharton.upenn.edu/documents/402/CRSP-Compustat_Merged_Database_Data_Guide_9efDcmD.pdf) and [CRSP S&P 500 membership](https://wrds-www.wharton.upenn.edu/documents/397/CRSP_1925_historical_indexes_guide.pdf), depending on the subscription. Cross-check recent changes and documented migrations against S&P notices. |
-| Quarterly earnings availability for anticipation | Add the quarterly earnings report date (`RDQ`) to `GVKEY` and `DATADATE` so it can be joined to the existing earnings data. Use historical vintages if testing what investors knew before a restatement. | [Compustat quarterly data on WRDS](https://wrds-www.wharton.upenn.edu/documents/403/CRSP_-_Compustat_Merged_Database_CCM_NiIeIWV.pdf). [SEC EDGAR](https://www.sec.gov/search-filings/edgar-application-programming-interfaces) provides dated 8-K, 10-Q, and 10-K filings for a public reconstruction. |
-| Historical float and sector inputs for the full candidate screen | Dated float shares or a float factor for candidate securities, historical eligibility thresholds, and dated sector classifications and index weights if using sector balance. The current screen uses ordinary CRSP market capitalization. | [S&P float methodology](https://www.spglobal.com/spdji/en/documents/index-policies/methodology-sp-float-adjustment.pdf) and [U.S. index methodology](https://www.spglobal.com/spdji/en/methodology/article/sp-us-indices-methodology/) define the screen. Check historical coverage with S&P for its weights and IWF and with [FactSet Ownership on WRDS](https://wrds-www.wharton.upenn.edu/pages/about/data-vendors/factset/) for float-related data. The [CCM guide](https://wrds-www.wharton.upenn.edu/documents/402/CRSP-Compustat_Merged_Database_Data_Guide_9efDcmD.pdf) documents historical GICS. |
-| Corporate events for the sample filters | Dates and security identifiers for IPOs, spin-offs, and acquisitions within the plan's ±100-day window. For M&A, record the target and acquirer. The CRSP delisting export already covers delisting dates and reasons. | [SDC M&A and New Issues on WRDS](https://wrds-www.wharton.upenn.edu/pages/data-announcements/retirement-of-refinitiv-sdc-platinum/), subject to access. Check public S&P notices and SEC filings for individual events. |
-
-### Inputs for execution and additional tests
-
-- **Closing auction execution.** Request timestamped closing trades, size, and sale condition codes if testing actual auction prices. [NYSE Daily TAQ on WRDS](https://wrds-www.wharton.upenn.edu/pages/about/data-vendors/nyse-trade-and-quote-taq/) provides historical trades and quotes. The daily CRSP export can serve as a closing-price proxy.
-- **Costs and benchmark.** Request dated security-level borrow fees and availability for a short from [S&P Global Securities Finance on WRDS](https://wrds-www.wharton.upenn.edu/pages/about/data-vendors/markit/), subject to access. Use historical constituent weights for a benchmark underweight and a dividend-inclusive S&P 500 return series for a total-return comparison. Check [S&P index data](https://www.spglobal.com/spdji/en/methodology/article/sp-us-indices-methodology/) and [CRSP's S&P 500 total-return coverage](https://wrds-www.wharton.upenn.edu/documents/397/CRSP_1925_historical_indexes_guide.pdf).
-- **Passive ownership mechanism.** This extension requires dated fund-level holdings and a classification of which funds track an index. [SEC 13F data](https://www.sec.gov/files/form_13f.pdf) reports institutional holdings. Fund strategy needs separate classification.
-- **Full twelve-month outcomes for the 2025 cohort.** Extend CRSP returns through December 2026 once available. The calendar-time portfolio can already include these events through December 2025.
+| S&P 500 announcement dates | Announcement-centred windows that separate the announcement effect from anticipation and from the trading-date effect. | [S&P DJI announcements](https://www.spglobal.com/spdji/en/media-center/news-announcements/) for event-by-event verification. [Siblis Historical Component Changes](https://siblisresearch.com/data/historical-component-changes/) is a commercial source for bulk history. |
+| Complete S&P 500 membership for 2023–2025 | Turning the 2023–2025 check into part of the core sample. | [CRSP S&P 500 membership](https://wrds-www.wharton.upenn.edu/documents/397/CRSP_1925_historical_indexes_guide.pdf) or Compustat index constituents on WRDS, cross-checked against S&P notices. |
+| S&P MidCap 400 membership history | Separating migrations from other additions and deletions. | Compustat/CCM historical constituents on WRDS, depending on the subscription. |
+| Closing auction prices, borrow fees, and trade-level costs | Measuring execution at the index trading close and replacing the cost and borrow assumptions. | [NYSE Daily TAQ on WRDS](https://wrds-www.wharton.upenn.edu/pages/about/data-vendors/nyse-trade-and-quote-taq/) and [S&P Global Securities Finance on WRDS](https://wrds-www.wharton.upenn.edu/pages/about/data-vendors/markit/), subject to access. |
+| Corporate-event data (SDC M&A, spin-offs) | Classifying events directly instead of with CRSP proxies. | [SDC on WRDS](https://wrds-www.wharton.upenn.edu/pages/data-announcements/retirement-of-refinitiv-sdc-platinum/), subject to access. |
